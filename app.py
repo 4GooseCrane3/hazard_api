@@ -3,11 +3,13 @@ import numpy as np
 import joblib
 import tensorflow as tf
 from ultralytics import YOLO
+import os
+import uvicorn
 
 app = FastAPI()
 
 # ------------------------------
-# Root endpoint (for Render health check)
+# Root endpoint (Render health check)
 # ------------------------------
 @app.get("/")
 async def root():
@@ -25,7 +27,8 @@ def get_pt_model():
     if _pt_model is None:
         try:
             _pt_model = YOLO("ripcurrent_model.pt")
-        except:
+        except Exception as e:
+            print("YOLO load error:", e)
             _pt_model = None
     return _pt_model
 
@@ -34,7 +37,8 @@ def get_keras_model():
     if _keras_model is None:
         try:
             _keras_model = tf.keras.models.load_model("hightide_model.keras")
-        except:
+        except Exception as e:
+            print("Keras load error:", e)
             _keras_model = None
     return _keras_model
 
@@ -43,7 +47,8 @@ def get_joblib_model():
     if _joblib_model is None:
         try:
             _joblib_model = joblib.load("flood_model.joblib")
-        except:
+        except Exception as e:
+            print("Joblib load error:", e)
             _joblib_model = None
     return _joblib_model
 
@@ -81,3 +86,10 @@ async def predict(request: Request):
 
     else:
         return {"error": "Unknown alert type"}
+
+# ------------------------------
+# Run server (Render-ready)
+# ------------------------------
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
