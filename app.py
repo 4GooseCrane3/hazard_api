@@ -1,36 +1,44 @@
 from fastapi import FastAPI, Request
-import torch
-import tensorflow as tf
-import joblib
 import numpy as np
+import joblib
+import tensorflow as tf
 from ultralytics import YOLO
 
 app = FastAPI()
 
 # ------------------------------
-# Load models
+# Helper functions to lazy-load models
 # ------------------------------
+_pt_model = None
+_keras_model = None
+_joblib_model = None
 
-# 1️⃣ PyTorch / Ultralytics model
-try:
-    pt_model = YOLO("ripcurrent_model.pt")  # loads YOLO model safely
-except Exception as e:
-    print("Error loading YOLO model:", e)
-    pt_model = None
+def get_pt_model():
+    global _pt_model
+    if _pt_model is None:
+        try:
+            _pt_model = YOLO("ripcurrent_model.pt")
+        except:
+            _pt_model = None
+    return _pt_model
 
-# 2️⃣ Keras model
-try:
-    keras_model = tf.keras.models.load_model("hightide_model.keras")
-except Exception as e:
-    print("Error loading Keras model:", e)
-    keras_model = None
+def get_keras_model():
+    global _keras_model
+    if _keras_model is None:
+        try:
+            _keras_model = tf.keras.models.load_model("hightide_model.keras")
+        except:
+            _keras_model = None
+    return _keras_model
 
-# 3️⃣ Scikit-learn model
-try:
-    joblib_model = joblib.load("flood_model.joblib")
-except Exception as e:
-    print("Error loading joblib model:", e)
-    joblib_model = None
+def get_joblib_model():
+    global _joblib_model
+    if _joblib_model is None:
+        try:
+            _joblib_model = joblib.load("flood_model.joblib")
+        except:
+            _joblib_model = None
+    return _joblib_model
 
 # ------------------------------
 # API endpoint
@@ -42,23 +50,27 @@ async def predict(request: Request):
     features = np.array(data.get("features", []), dtype=np.float32)
 
     if alert_type == "rip_current":
-        if pt_model is None:
-            return {"error": "PyTorch model not loaded"}
-        pred = pt_model.predict(features)  # adapt if using images
-        severity = float(pred[0].boxes.conf[0]) if pred[0].boxes else 0.0
+        model = get_pt_model()
+        if model is None:
+            return {"error": "PyTorch YOLO model not loaded"}
+        # Placeholder: replace with actual image input handling
+        return {"alert_type": alert_type, "severity": 1.0}
+
     elif alert_type == "high_tide":
-        if keras_model is None:
+        model = get_keras_model()
+        if model is None:
             return {"error": "Keras model not loaded"}
         features_keras = features.reshape(1, -1)
-        pred = keras_model.predict(features_keras)
-        severity = float(pred[0][0])
+        pred = model.predict(features_keras)
+        return {"alert_type": alert_type, "severity": float(pred[0][0])}
+
     elif alert_type == "flood":
-        if joblib_model is None:
+        model = get_joblib_model()
+        if model is None:
             return {"error": "Joblib model not loaded"}
         features_joblib = features.reshape(1, -1)
-        pred = joblib_model.predict(features_joblib)
-        severity = float(pred[0])
+        pred = model.predict(features_joblib)
+        return {"alert_type": alert_type, "severity": float(pred[0])}
+
     else:
         return {"error": "Unknown alert type"}
-
-    return {"alert_type": alert_type, "severity": severity}
