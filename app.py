@@ -7,7 +7,14 @@ from ultralytics import YOLO
 app = FastAPI()
 
 # ------------------------------
-# Helper functions to lazy-load models
+# Root endpoint (for Render health check)
+# ------------------------------
+@app.get("/")
+async def root():
+    return {"message": "Hazard API is running"}
+
+# ------------------------------
+# Lazy model loaders
 # ------------------------------
 _pt_model = None
 _keras_model = None
@@ -41,7 +48,7 @@ def get_joblib_model():
     return _joblib_model
 
 # ------------------------------
-# API endpoint
+# Prediction endpoint
 # ------------------------------
 @app.post("/predict")
 async def predict(request: Request):
@@ -53,7 +60,7 @@ async def predict(request: Request):
         model = get_pt_model()
         if model is None:
             return {"error": "PyTorch YOLO model not loaded"}
-        # Placeholder: replace with actual image input handling
+        # Placeholder: replace with actual YOLO inference
         return {"alert_type": alert_type, "severity": 1.0}
 
     elif alert_type == "high_tide":
